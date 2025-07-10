@@ -5,18 +5,14 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# File to store car location data
 CAR_LOCATIONS_FILE = 'car_locations.json'
-# Path to your users file (if you still need user management for other features)
 USERS_FILE = 'users.json' 
 
-# Configure the maximum number of location entries to keep
-MAX_LOCATION_ENTRIES = 1000 # Keep a maximum of 1000 location points
+MAX_LOCATION_ENTRIES = 1000 
 
-# Ensure the car_locations.json file exists
 if not os.path.exists(CAR_LOCATIONS_FILE):
     with open(CAR_LOCATIONS_FILE, 'w') as f:
-        json.dump([], f) # Initialize with an empty list
+        json.dump([], f) 
 
 @app.route('/')
 def index():
@@ -26,7 +22,6 @@ def index():
 def style():
     return send_from_directory('.', 'styles.css')
 
-# --- Car Tracker Specific Endpoints ---
 
 @app.route('/location', methods=['POST'])
 def receive_location():
@@ -43,7 +38,7 @@ def receive_location():
         if latitude is None or longitude is None:
             return jsonify({'error': 'Missing latitude or longitude'}), 400
 
-        timestamp = datetime.now().isoformat() + 'Z' # ISO 8601 format with Z for UTC
+        timestamp = datetime.now().isoformat() + 'Z' 
 
         new_location = {
             'latitude': latitude,
@@ -54,22 +49,19 @@ def receive_location():
         with open(CAR_LOCATIONS_FILE, 'r+') as f:
             locations = json.load(f)
             
-            # --- Data Retention Logic ---
             if len(locations) >= MAX_LOCATION_ENTRIES:
-                locations.pop(0) # Remove the oldest entry (first element)
+                locations.pop(0)
                 print(f"Removed oldest location to maintain {MAX_LOCATION_ENTRIES} entries.")
-            # --- End Data Retention Logic ---
             
-            locations.append(new_location) #
-            f.seek(0) # Rewind to the beginning of the file
+            locations.append(new_location)
+            f.seek(0)
             json.dump(locations, f, indent=2) #
-            f.truncate() # Remove remaining part if new content is shorter
-
-        print(f"Received location: {new_location}. Total entries: {len(locations)}") # For debugging
+            f.truncate()
+        print(f"Received location: {new_location}. Total entries: {len(locations)}") 
         return jsonify({'message': 'Location received and saved successfully!'}), 201
 
     except Exception as e:
-        print(f"Error receiving location: {e}") # For debugging
+        print(f"Error receiving location: {e}") 
         return jsonify({'error': str(e)}), 500
 
 @app.route('/locations', methods=['GET'])
@@ -82,16 +74,15 @@ def get_all_locations():
             locations = json.load(f)
         return jsonify(locations), 200
     except FileNotFoundError:
-        return jsonify([]), 200 # Return empty list if file doesn't exist yet
+        return jsonify([]), 200 
     except Exception as e:
         print(f"Error reading locations: {e}")
         return jsonify({'error': str(e)}), 500
 
-# --- Original User Management (Optional - keep if needed for other features) ---
 @app.route('/users', methods=['GET'])
 def get_users():
     if not os.path.exists(USERS_FILE):
-        return jsonify([]), 200 # Return empty if no users file
+        return jsonify([]), 200
     with open(USERS_FILE, 'r') as f:
         users = json.load(f)
     return jsonify(users)
@@ -131,11 +122,8 @@ def login():
 
     return jsonify({'error': 'Invalid username or password'}), 401
 
-# --- End Original User Management ---
-
 if __name__ == '__main__':
-    # Creates car_locations.json if it doesn't exist on startup
     if not os.path.exists(CAR_LOCATIONS_FILE):
         with open(CAR_LOCATIONS_FILE, 'w') as f:
             json.dump([], f)
-    app.run(port=8000, debug=True) # Set debug=True for development for auto-reloading
+    app.run(port=8000, debug=True) 

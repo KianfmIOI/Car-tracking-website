@@ -71,11 +71,9 @@
     <script>
       let map;
       let carMarker;
-      let polyline;
-      // Default initial view (Imam Reza Holy Shrine, Mashhad)
+      let locationMarkers = L.featureGroup();
       let initialMapCenter = [36.2972, 59.6067];
 
-      // Initialize the map
       map = L.map("map").setView(initialMapCenter, 15);
 
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -84,32 +82,26 @@
           '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
 
-      // Create a marker for the car's current location
-      // Using an empty point initially, will be updated by fetchAndDisplayLocations
       carMarker = L.marker(initialMapCenter).addTo(map);
       carMarker.bindPopup("Car's Current Location").openPopup();
 
-      // Cache for geocoded locations to reduce API calls
+      locationMarkers.addTo(map);
+
       const geocodeCache = {};
 
-      // Function to perform reverse geocoding using OpenStreetMap Nominatim
       async function reverseGeocode(latitude, longitude) {
         const cacheKey = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
         if (geocodeCache[cacheKey]) {
-          return geocodeCache[cacheKey]; // Return from cache if available
+          return geocodeCache[cacheKey];
         }
 
         const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`;
 
         try {
-          // Important: Nominatim asks for a polite user-agent.
-          // In a browser environment, fetch typically handles this, but for a server-side
-          // request or if you were making many requests quickly, you'd need to add headers.
-          // For frontend usage, this is generally fine for moderate use.
           const response = await fetch(nominatimUrl);
           const data = await response.json();
           const locationName = data.display_name || "Unknown Location";
-          geocodeCache[cacheKey] = locationName; // Store in cache
+          geocodeCache[cacheKey] = locationName;
           return locationName;
         } catch (error) {
           console.error("Error during Nominatim reverse geocoding:", error);
@@ -117,10 +109,9 @@
         }
       }
 
-      // Function to fetch and display car locations
       async function fetchAndDisplayLocations() {
         try {
-          const response = await fetch("/locations"); // Fetch from your Flask backend
+          const response = await fetch("/locations");
           const locations = await response.json();
 
           if (locations.length === 0) {
@@ -130,18 +121,8 @@
             return;
           }
 
-          // Extract coordinates for the polyline
-          const latlngs = locations.map((loc) => [loc.latitude, loc.longitude]);
+          locationMarkers.clearLayers();
 
-          // Update the polyline
-          if (polyline) {
-            map.removeLayer(polyline); // Remove old polyline if exists
-          }
-          polyline = L.polyline(latlngs, { color: "red", weight: 5 }).addTo(
-            map
-          );
-
-          // Update the car's current location marker to the latest point
           const latestLocation = locations[locations.length - 1];
           carMarker.setLatLng([
             latestLocation.latitude,
@@ -157,22 +138,44 @@
             ).toLocaleString()}`
           );
 
-          // Optionally center the map on the latest location when it moves significantly
-          // map.setView([latestLocation.latitude, latestLocation.longitude], map.getZoom());
+          locations.forEach((loc, index) => {
+            let markerSize = 15;
+            if (index === locations.length - 1) {
+              markerSize = 30;
+            } else if (index === locations.length - 2) {
+              markerSize = 25;
+            } else if (index === locations.length - 3) {
+              markerSize = 20;
+            }
 
-          console.log("Map updated with new locations and polyline.");
+            let customIcon = L.divIcon({
+              className: "custom-marker",
+              html: `<div style="background-color: red; width: ${markerSize}px; height: ${markerSize}px; border-radius: 50%;"></div>`,
+              iconSize: [markerSize, markerSize],
+              iconAnchor: [markerSize / 2, markerSize / 2],
+            });
 
-          // --- Update the visited locations list ---
+            const marker = L.marker([loc.latitude, loc.longitude], {
+              icon: customIcon,
+            });
+            marker.bindPopup(
+              `Location: (${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(
+                4
+              )})<br>Time: ${new Date(loc.timestamp).toLocaleString()}`
+            );
+            locationMarkers.addLayer(marker);
+          });
+
+          console.log("Map updated with new locations and markers.");
+
           const locationsListElement = document.getElementById(
             "visitedLocationsList"
           );
-          locationsListElement.innerHTML = ""; // Clear previous list
+          locationsListElement.innerHTML = "";
 
-          // To avoid too many API calls, geocode only the last few unique locations
           const locationsToGeocode = [];
-          const uniqueLocations = new Set(); // Use a Set to track unique (lat,lng) pairs
+          const uniqueLocations = new Set();
 
-          // Iterate from newest to oldest, adding unique locations
           for (
             let i = locations.length - 1;
             i >= 0 && locationsToGeocode.length < 10;
@@ -181,9 +184,9 @@
             const loc = locations[i];
             const locString = `${loc.latitude.toFixed(
               4
-            )},${loc.longitude.toFixed(4)}`; // Rough uniqueness
+            )},${loc.longitude.toFixed(4)}`;
             if (!uniqueLocations.has(locString)) {
-              locationsToGeocode.unshift(loc); // Add to the beginning to maintain chronological order
+              locationsToGeocode.unshift(loc);
               uniqueLocations.add(locString);
             }
           }
@@ -206,19 +209,15 @@
               locationsListElement.appendChild(listItem);
             }
           }
-          // --- End New List Update ---
         } catch (error) {
           console.error("Error fetching car locations:", error);
         }
       }
 
-      // Initial load of locations
       fetchAndDisplayLocations();
 
-      // Refresh locations every 10 seconds (adjust as needed)
-      setInterval(fetchAndDisplayLocations, 10000); // 10 seconds for real-time like updates
+      setInterval(fetchAndDisplayLocations, 10000);
 
-      // Music player script (kept as is)
       const audio = document.getElementById("myAudio");
       const image = document.getElementById("audioImage");
 

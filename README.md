@@ -1,6 +1,6 @@
-# 🚗 Car Tracking Web App
+# 📌 Tracking Web App
 
-A lightweight **car / taxi tracking web application** built as a learning and prototype project using modern web technologies and open-source mapping tools.
+A lightweight **tracking web application** built as a learning and prototype project using modern web technologies and open-source mapping tools.
 
 This project demonstrates how a simple real-time tracking system can be built using a Python backend and a JavaScript-based frontend.
 
